@@ -1,0 +1,59 @@
+# 创建用户组
+- name: create group
+  group: name=mysql
+
+- name: create user
+  user: name=mysql createhome=no
+
+# 下载mysql
+- name: wget mysql57-community-release-el7-11.noarch.rpm
+  get_url: url="https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm" dest="{{download_base}}/mysql57-community-release-el7-11.noarch.rpm" remote_src=yes
+  register: download_result
+
+# debug mysql-community-server是否安装，如果安装|length>0
+- name: check RPM install status
+  debug: var=ansible_facts.packages['mysql-community-server']|length
+
+
+# yum安装mysql源
+- name: yum install mysql source
+  yum:  name="{{download_base}}/mysql57-community-release-el7-11.noarch.rpm" state=installed
+
+# yum安装mysql服务
+- name: yum install mysql
+  yum: name=mysql-community-server state=installed
+
+# 拷贝配置文件
+- name: copy /etc/my.cnf
+  copy: src=my.cnf dest=/etc/my.cnf
+
+# 创建数据文件
+- name: create mysql directory if it does not exist
+  file: dest=/data/mysql state=directory owner=mysql group=mysql
+
+# mysql初始化
+- name: mysql init
+  command: mysqld --initialize --datadir=/data/mysql/ --user=mysql
+
+# 启动/重启服务器
+- name: restart mysqld service
+  become: yes
+  shell: "systemctl restart mysqld"
+
+# 配置mysqld开机启动
+- name: enable mysqld
+  become: yes
+  command: systemctl enable mysqld
+
+
+# systemctl 重新加载配置
+- name: reload systemd
+  become: yes
+  command: systemctl daemon-reload
+
+# expect 安装(不用安装了，不用这个)
+#- name: yum install expect
+#  yum: name=expect state=installed
+
+- name: alter mysql_user
+  script: mysql_user.sh
